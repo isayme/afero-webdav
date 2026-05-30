@@ -25,12 +25,12 @@ type File struct {
 	name string
 
 	// reader is the HTTP response body from a GET request, lazily opened on first Read.
-	reader  io.ReadCloser
+	reader io.ReadCloser
 	// readOff tracks the virtual read position for seek operations.
 	readOff int64
 
 	// writer is the write side of an io.Pipe, feeding data to the streaming PUT goroutine.
-	writer      io.WriteCloser
+	writer io.WriteCloser
 	// writeResult receives the error (if any) from the PUT goroutine after Close.
 	writeResult chan error
 
@@ -38,7 +38,7 @@ type File struct {
 	// without an additional PROPFIND round-trip.
 	fileInfo os.FileInfo
 	// closed prevents double-close and operations on a closed handle.
-	closed   bool
+	closed bool
 }
 
 func NewFile(fs *Fs, name string) *File {
@@ -74,24 +74,25 @@ func (f *File) Readdir(count int) ([]os.FileInfo, error) {
 		}
 	}
 
-	if count > 0 && len(result) > count {
-		result = result[:count]
+	if count > 0 {
+		if len(result) > count {
+			result = result[:count]
+		}
+		if len(result) == 0 {
+			err = io.EOF
+		}
 	}
 
-	return result, nil
+	return result, err
 }
 
 func (f *File) Readdirnames(n int) ([]string, error) {
 	infos, err := f.Readdir(n)
-	if err != nil {
-		return nil, err
-	}
-
 	names := make([]string, len(infos))
 	for i, info := range infos {
 		names[i] = info.Name()
 	}
-	return names, nil
+	return names, err
 }
 
 // Stat returns file metadata.  The result is cached in fileInfo for Seek(SeekEnd).

@@ -143,3 +143,65 @@ func TestFileCloseMultiple(t *testing.T) {
 		t.Fatalf("Second Close should not error, got: %v", err)
 	}
 }
+
+func TestFileReaddirCountPositiveEmptyDir(t *testing.T) {
+	fs := newTestFs(t)
+
+	fs.Mkdir("/readdir_empty", defaultDirMode)
+
+	dir, err := fs.Open("/readdir_empty")
+	if err != nil {
+		t.Fatalf("Open dir failed: %v", err)
+	}
+	defer dir.Close()
+
+	entries, err := dir.Readdir(1)
+	if err != io.EOF {
+		t.Errorf("Readdir(1) on empty dir: expected io.EOF, got %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(entries))
+	}
+}
+
+func TestFileReaddirTruncation(t *testing.T) {
+	fs := newTestFs(t)
+
+	fs.Mkdir("/trunc_test", defaultDirMode)
+	fs.Create("/trunc_test/a.txt")
+	fs.Create("/trunc_test/b.txt")
+
+	dir, err := fs.Open("/trunc_test")
+	if err != nil {
+		t.Fatalf("Open dir failed: %v", err)
+	}
+	defer dir.Close()
+
+	entries, err := dir.Readdir(1)
+	if err != nil {
+		t.Fatalf("Readdir(1) failed: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("expected 1 entry, got %d", len(entries))
+	}
+}
+
+func TestFileReaddirnamesCountPositiveEmptyDir(t *testing.T) {
+	fs := newTestFs(t)
+
+	fs.Mkdir("/readdirnames_empty", defaultDirMode)
+
+	dir, err := fs.Open("/readdirnames_empty")
+	if err != nil {
+		t.Fatalf("Open dir failed: %v", err)
+	}
+	defer dir.Close()
+
+	names, err := dir.Readdirnames(1)
+	if err != io.EOF {
+		t.Errorf("Readdirnames(1) on empty dir: expected io.EOF, got %v", err)
+	}
+	if len(names) != 0 {
+		t.Errorf("expected 0 names, got %d", len(names))
+	}
+}
