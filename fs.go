@@ -16,6 +16,14 @@ import (
 	"github.com/studio-b12/gowebdav"
 )
 
+// Default permission bits for files and directories created through this
+// filesystem.  WebDAV does not expose Unix permission metadata, so these
+// values are used for all entries.
+const (
+	defaultFileMode os.FileMode = 0644 // owner rw, group r, other r
+	defaultDirMode  os.FileMode = 0755 // owner rwx, group rx, other rx
+)
+
 // Compile-time check: *Fs satisfies afero.Fs.
 var _ afero.Fs = (*Fs)(nil)
 
@@ -153,18 +161,28 @@ func (fs *Fs) Rename(oldname, newname string) error {
 	return fs.client.Rename(oldname, newname, false)
 }
 
+// rootStat implements os.FileInfo for the filesystem root "/".
+//
+// Many WebDAV servers return inconsistent results for a PROPFIND on "/",
+// so the root path is handled locally instead of making a server round-trip.
+type rootStat struct{}
+
+func (rootStat) Name() string       { return "/" }
+func (rootStat) Size() int64        { return 0 }
+func (rootStat) Mode() os.FileMode  { return os.ModeDir | defaultDirMode }
+func (rootStat) ModTime() time.Time { return time.Time{} }
+func (rootStat) IsDir() bool        { return true }
+func (rootStat) Sys() any           { return nil }
+
 // Stat returns file or directory metadata via WebDAV PROPFIND.
 //
 // The root path "/" is handled locally because many WebDAV servers return
 // inconsistent results for a PROPFIND on "/".
-//
-// The returned FileInfo includes WebDAV-specific metadata (ETag, ContentType)
-// when available from the server response.
 func (fs *Fs) Stat(name string) (os.FileInfo, error) {
 	name = cleanPath(name)
 
 	if name == "" || name == "/" {
-		return NewFileInfo("/", true, 0, time.Time{}), nil
+		return rootStat{}, nil
 	}
 
 	info, err := fs.client.Stat(name)
@@ -176,7 +194,7 @@ func (fs *Fs) Stat(name string) (os.FileInfo, error) {
 		}
 	}
 
-	return newFileInfo(info), nil
+	return info, nil
 }
 
 // Chmod is not supported because standard WebDAV does not expose Unix permission bits.
@@ -209,37 +227,4 @@ func cleanPath(name string) string {
 	return name
 }
 
-// newFileInfo wraps an os.FileInfo returned by gowebdav into our FileInfo type.
-//
-// It extracts the WebDAV-specific ETag and Content-Type from the underlying
-// gowebdav.File struct when available.
-func newFileInfo(info os.FileInfo) *FileInfo {
-	fi := &FileInfo{
-		name:    info.Name(),
-		size:    info.Size(),
-		modTime: info.ModTime(),
-		isDir:   info.IsDir(),
-	}
 
-	if f, ok := info.(gowebdav.File); ok {
-		fi.etag = f.ETag()
-		fi.cType = f.ContentType()
-	}
-
-	return fi
-}
-
-// newFileInfoFromDavFile constructs a FileInfo directly from a gowebdav.File value
-// with full metadata including ETag and Content-Type.
-//
-// This is used when processing ReadDir results where the underlying type is known.
-func newFileInfoFromDavFile(f gowebdav.File) *FileInfo {
-	return &FileInfo{
-		name:    f.Name(),
-		size:    f.Size(),
-		modTime: f.ModTime(),
-		isDir:   f.IsDir(),
-		etag:    f.ETag(),
-		cType:   f.ContentType(),
-	}
-}

@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/spf13/afero"
-	"github.com/studio-b12/gowebdav"
 )
 
 // Compile-time check: *File satisfies afero.File.
@@ -55,35 +54,23 @@ func (f *File) Name() string {
 // Readdir reads the directory contents via WebDAV PROPFIND with depth 1.
 //
 // If count <= 0, all entries are returned.  If count > 0, at most count entries
-// are returned (partial read) - matching the afero.File interface contract.
-//
-// Each returned FileInfo includes WebDAV-specific metadata (ETag, Content-Type)
-// when the underlying gowebdav response provides it.
+// are returned (partial read), matching the afero.File interface contract.
 func (f *File) Readdir(count int) ([]os.FileInfo, error) {
 	infos, err := f.fs.client.ReadDir(f.name)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]os.FileInfo, 0, len(infos))
-	for _, info := range infos {
-		if davFile, ok := info.(gowebdav.File); ok {
-			result = append(result, newFileInfoFromDavFile(davFile))
-		} else {
-			result = append(result, info)
-		}
-	}
-
 	if count > 0 {
-		if len(result) > count {
-			result = result[:count]
+		if len(infos) > count {
+			infos = infos[:count]
 		}
-		if len(result) == 0 {
+		if len(infos) == 0 {
 			err = io.EOF
 		}
 	}
 
-	return result, err
+	return infos, err
 }
 
 func (f *File) Readdirnames(n int) ([]string, error) {
