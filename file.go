@@ -61,16 +61,21 @@ func (f *File) Readdir(count int) ([]os.FileInfo, error) {
 		return nil, err
 	}
 
+	result := make([]os.FileInfo, len(infos))
+	for i, info := range infos {
+		result[i] = wrapFileInfo(info)
+	}
+
 	if count > 0 {
-		if len(infos) > count {
-			infos = infos[:count]
+		if len(result) > count {
+			result = result[:count]
 		}
-		if len(infos) == 0 {
+		if len(result) == 0 {
 			err = io.EOF
 		}
 	}
 
-	return infos, err
+	return result, err
 }
 
 func (f *File) Readdirnames(n int) ([]string, error) {

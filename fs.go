@@ -161,6 +161,29 @@ func (fs *Fs) Rename(oldname, newname string) error {
 	return fs.client.Rename(oldname, newname, false)
 }
 
+// fileInfo wraps gowebdav.File to override Mode() with fixed permission bits,
+// since WebDAV does not expose Unix permission metadata.
+type fileInfo struct {
+	os.FileInfo
+}
+
+func (fi fileInfo) Mode() os.FileMode {
+	if fi.IsDir() {
+		return os.ModeDir | defaultDirMode
+	}
+	return defaultFileMode
+}
+
+// wrapFileInfo wraps an os.FileInfo into fileInfo if the underlying value is
+// a gowebdav.File, applying the custom Mode(). Non-gowebdav values are returned
+// as-is.
+func wrapFileInfo(fi os.FileInfo) os.FileInfo {
+	if _, ok := fi.(fileInfo); ok {
+		return fi
+	}
+	return fileInfo{FileInfo: fi}
+}
+
 // rootStat implements os.FileInfo for the filesystem root "/".
 //
 // Many WebDAV servers return inconsistent results for a PROPFIND on "/",
@@ -194,7 +217,7 @@ func (fs *Fs) Stat(name string) (os.FileInfo, error) {
 		}
 	}
 
-	return info, nil
+	return wrapFileInfo(info), nil
 }
 
 // Chmod is not supported because standard WebDAV does not expose Unix permission bits.
@@ -226,5 +249,3 @@ func cleanPath(name string) string {
 	}
 	return name
 }
-
-
