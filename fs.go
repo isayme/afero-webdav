@@ -161,7 +161,7 @@ func (fs *Fs) Rename(oldname, newname string) error {
 	return fs.client.Rename(oldname, newname, false)
 }
 
-// fileInfo wraps gowebdav.File to override Mode() with fixed permission bits,
+// fileInfo wraps an os.FileInfo to override Mode() with fixed permission bits,
 // since WebDAV does not expose Unix permission metadata.
 type fileInfo struct {
 	os.FileInfo
@@ -174,10 +174,12 @@ func (fi fileInfo) Mode() os.FileMode {
 	return defaultFileMode
 }
 
-// wrapFileInfo wraps an os.FileInfo into fileInfo if the underlying value is
-// a gowebdav.File, applying the custom Mode(). Non-gowebdav values are returned
-// as-is.
+// wrapFileInfo wraps an os.FileInfo into fileInfo, overriding Mode() with
+// fixed permission bits. Already-wrapped values and nil are returned as-is.
 func wrapFileInfo(fi os.FileInfo) os.FileInfo {
+	if fi == nil {
+		return nil
+	}
 	if _, ok := fi.(fileInfo); ok {
 		return fi
 	}
