@@ -1,5 +1,7 @@
 # afero-webdav
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/isayme/afero-webdav.svg)](https://pkg.go.dev/github.com/isayme/afero-webdav)
+
 An [afero](https://github.com/spf13/afero) filesystem implementation backed by a WebDAV server.
 
 ## Usage
