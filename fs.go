@@ -1,20 +1,40 @@
 // Package webdavfs provides an afero filesystem implementation backed by a WebDAV server.
 //
-// It wraps a gowebdav.Client and exposes a standard afero.Fs interface.  All WebDAV protocol
+// It uses a Client interface and exposes a standard afero.Fs interface.  All WebDAV protocol
 // details (PROPFIND, GET, PUT, MKCOL, DELETE, MOVE) are handled by the underlying client.
 // File reads use HTTP Range requests for efficient seeking; writes use io.Pipe for streaming
 // uploads.
 package webdavfs
 
 import (
+	"io"
 	"os"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/spf13/afero"
-	"github.com/studio-b12/gowebdav"
 )
+
+// Client is the interface that wraps the WebDAV client methods used by Fs.
+//
+// Any WebDAV client implementation that satisfies this interface can be used
+// as the backend, making the package independent of a specific client library.
+// The gowebdav.Client from github.com/studio-b12/gowebdav satisfies this
+// interface by default.
+type Client interface {
+	ReadDir(path string) ([]os.FileInfo, error)
+	Stat(path string) (os.FileInfo, error)
+	Remove(path string) error
+	RemoveAll(path string) error
+	Mkdir(path string, perm os.FileMode) error
+	MkdirAll(path string, perm os.FileMode) error
+	Rename(oldpath, newpath string, overwrite bool) error
+	ReadStream(path string) (io.ReadCloser, error)
+	ReadStreamRange(path string, offset, length int64) (io.ReadCloser, error)
+	Write(path string, data []byte, mode os.FileMode) error
+	WriteStream(path string, stream io.Reader, mode os.FileMode) error
+}
 
 // Default permission bits for files and directories created through this
 // filesystem.  WebDAV does not expose Unix permission metadata, so these
@@ -29,17 +49,17 @@ var _ afero.Fs = (*Fs)(nil)
 
 // Fs implements afero.Fs backed by a WebDAV server.
 //
-// All operations are delegated to a gowebdav.Client which handles the WebDAV protocol
+// All operations are delegated to a Client which handles the WebDAV protocol
 // (PROPFIND, GET, PUT, MKCOL, DELETE, MOVE) and authentication.
 type Fs struct {
-	client *gowebdav.Client
+	client Client
 }
 
-// New creates a new WebDAV-backed filesystem from a pre-configured gowebdav.Client.
+// New creates a new WebDAV-backed filesystem from a pre-configured Client.
 //
 // The caller is responsible for setting up authentication, timeouts, and transport
 // on the client before passing it here.
-func New(client *gowebdav.Client) *Fs {
+func New(client Client) *Fs {
 	return &Fs{
 		client: client,
 	}

@@ -306,7 +306,7 @@ func (f *File) openReadStream() error {
 // openWriteStream sets up a streaming PUT upload via io.Pipe.
 //
 // A goroutine reads from the pipe and uploads to the WebDAV server using
-// gowebdav.Client.WriteStream.  The error from the upload is communicated
+// Client.WriteStream.  The error from the upload is communicated
 // back through the writeResult channel and surfaced to the caller on Close().
 //
 // This is the same pattern used by afero-s3 for streaming uploads.
