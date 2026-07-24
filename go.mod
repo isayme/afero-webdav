@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/spf13/afero v1.15.0
-	github.com/studio-b12/gowebdav v0.12.0
+	github.com/studio-b12/gowebdav v0.13.0
 	golang.org/x/net v0.56.0
 )
 
